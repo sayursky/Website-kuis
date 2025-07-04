@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kuis SD - Anti Soal Ulang</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 20px; }
+    #login, #quiz, #result, #feedback, #nextBtn, #adminForm { display: none; }
+    .question { font-weight: bold; font-size: 18px; }
+    button {
+      margin: 5px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #timer { font-size: 20px; color: green; }
+    input[type="text"], select { width: 100%; padding: 5px; margin: 5px 0; }
+    #developerInfo { margin-top: 30px; font-size: 14px; color: gray; }
+  </style>
+</head>
+<body>
+
+  <h2>🎮 Kuis Pelajaran SD - 20 Soal</h2>
+
+  <div id="login">
+    <p>Masukkan nama kamu:</p>
+    <input type="text" id="username">
+    <button onclick="startGame()">🚀 Mulai</button>
+  </div>
+
+  <div id="quiz">
+    <p id="timer">⏱️ Waktu: 120 detik</p>
+    <p id="questionText" class="question"></p>
+    <div id="options"></div>
+    <div id="feedback"></div>
+    <button id="nextBtn" onclick="nextQuestion()">➡️ Soal Berikutnya</button>
+  </div>
+
+  <div id="result">
+    <h3>⏰ Waktu habis atau soal selesai!</h3>
+    <p id="scoreText"></p>
+    <button onclick="location.reload()">🔁 Main Lagi</button>
+  </div>
+
+  <div id="adminForm">
+    <h3>👩‍💻 Form Tambah Soal (Admin)</h3>
+    <p>Kategori:
+      <select id="kategori">
+        <option value="agama">Agama 📘</option>
+        <option value="inggris">Bahasa Inggris 🇬🇧</option>
+        <option value="indo">Bahasa Indonesia 🇮🇩</option>
+        <option value="pkn">PKN 🧠</option>
+        <option value="ips">IPS 🌍</option>
+        <option value="ipa">IPA 🔬</option>
+        <option value="pjok">PJOK 🏃</option>
+        <option value="mulok">Mulok 🎨</option>
+      </select>
+    </p>
+    <p>Pertanyaan: <input type="text" id="qText" /></p>
+    <p>Opsi A: <input type="text" id="optA" /></p>
+    <p>Opsi B: <input type="text" id="optB" /></p>
+    <p>Opsi C: <input type="text" id="optC" /></p>
+    <p>Opsi D: <input type="text" id="optD" /></p>
+    <p>Jawaban Benar: <input type="text" id="correctAns" /></p>
+    <p>Penjelasan: <input type="text" id="explain" /></p>
+    <button onclick="addNewQuestion()">✔️ Tambahkan Soal</button>
+  </div>
+
+  <p id="developerInfo">👨‍💻 Developer: <b>ABDUL SUKUR</b></p>
+
+  <script>
+    const agamaSoal = [
+      { question: "📘 Siapa nabi terakhir dalam Islam?", options: ["Nabi Isa", "Nabi Ibrahim", "Nabi Musa", "Nabi Muhammad"], answer: "Nabi Muhammad", explanation: "📘 Nabi Muhammad SAW adalah nabi terakhir dalam Islam." }
+    ];
+
+    const inggrisSoal = [
+      { question: "🇬🇧 Translate: 'Cat' to Indonesian.", options: ["Kucing", "Anjing", "Burung", "Ikan"], answer: "Kucing", explanation: "🇬🇧 'Cat' artinya 'Kucing'." }
+    ];
+
+    const allQuestions = [...agamaSoal, ...inggrisSoal];
+    const repeated = Array(5).fill(allQuestions).flat(); // perbanyak
+    let questions = [];
+    let username = "";
+    let currentQuestion = 0;
+    let score = 0;
+    let timeLeft = 120;
+    let timer;
+    let answered = false;
+
+    document.getElementById("login").style.display = "block";
+
+    function startGame() {
+      username = document.getElementById("username").value.trim();
+      if (!username) {
+        alert("Masukkan nama terlebih dahulu!");
+        return;
+      }
+
+      // Selamat datang kembali
+      const prevUsers = JSON.parse(localStorage.getItem("usernames") || "[]");
+      if (prevUsers.includes(username)) {
+        alert("👋 Selamat datang kembali, " + username + "!");
+      } else {
+        prevUsers.push(username);
+        localStorage.setItem("usernames", JSON.stringify(prevUsers));
+      }
+
+      // Admin login
+      if (username === "123") {
+        alert("🛠️ Masuk sebagai admin.");
+        document.getElementById("login").style.display = "none";
+        document.getElementById("adminForm").style.display = "block";
+        return;
+      }
+
+      // Filter soal yang belum pernah dijawab
+      let usedQuestions = JSON.parse(localStorage.getItem("used_" + username) || "[]");
+      let availableQuestions = repeated.filter(q => !usedQuestions.includes(q.question));
+
+      if (availableQuestions.length < 20) {
+        alert("🎉 Kamu sudah menyelesaikan semua soal yang tersedia!");
+        return;
+      }
+
+      questions = availableQuestions.sort(() => Math.random() - 0.5).slice(0, 20);
+      document.getElementById("login").style.display = "none";
+      document.getElementById("quiz").style.display = "block";
+      showQuestion();
+      timer = setInterval(updateTime, 1000);
+    }
+
+    function updateTime() {
+      timeLeft--;
+      document.getElementById("timer").textContent = "⏱️ Waktu: " + timeLeft + " detik";
+      if (timeLeft <= 0) {
+        endGame();
+      }
+    }
+
+    function showQuestion() {
+      if (currentQuestion >= questions.length) {
+        endGame();
+        return;
+      }
+      answered = false;
+      const q = questions[currentQuestion];
+      document.getElementById("questionText").textContent = `(${currentQuestion + 1}/20) ` + q.question;
+      document.getElementById("options").innerHTML = "";
+      document.getElementById("feedback").style.display = "none";
+      document.getElementById("nextBtn").style.display = "none";
+
+      q.options.forEach(opt => {
+        const btn = document.createElement("button");
+        btn.textContent = opt;
+        btn.onclick = () => checkAnswer(opt);
+        document.getElementById("options").appendChild(btn);
+      });
+    }
+
+    function checkAnswer(selected) {
+      if (answered) return;
+      answered = true;
+
+      const q = questions[currentQuestion];
+      const feedbackDiv = document.getElementById("feedback");
+      feedbackDiv.style.display = "block";
+
+      const buttons = document.querySelectorAll("#options button");
+      buttons.forEach(btn => btn.disabled = true);
+
+      if (selected === q.answer) {
+        score++;
+        feedbackDiv.innerHTML = `<p style="color:green">✅ Benar!</p><p>${q.explanation}</p>`;
+      } else {
+        feedbackDiv.innerHTML = `<p style="color:red">❌ Salah. Jawaban: <b>${q.answer}</b></p><p>${q.explanation}</p>`;
+      }
+
+      document.getElementById("nextBtn").style.display = "inline-block";
+    }
+
+    function nextQuestion() {
+      currentQuestion++;
+      showQuestion();
+    }
+
+    function saveScore(name, score) {
+      const data = JSON.parse(localStorage.getItem("quizScores") || "[]");
+      data.push({ name, score });
+      localStorage.setItem("quizScores", JSON.stringify(data));
+    }
+
+    function endGame() {
+      clearInterval(timer);
+      saveScore(username, score);
+
+      // Simpan soal-soal yang sudah digunakan
+      const old = JSON.parse(localStorage.getItem("used_" + username) || "[]");
+      const newUsed = [...new Set([...old, ...questions.map(q => q.question)])];
+      localStorage.setItem("used_" + username, JSON.stringify(newUsed));
+
+      document.getElementById("quiz").style.display = "none";
+      document.getElementById("result").style.display = "block";
+      document.getElementById("scoreText").innerHTML = `
+        👏 <b>${username}</b>, kamu menjawab <b>${score}</b> dari 20 soal dengan benar.<br><br>
+        🏆 <b>Ranking Semua Pemain:</b><br>${showRanking()}`;
+    }
+
+    function showRanking() {
+      const data = JSON.parse(localStorage.getItem("quizScores") || "[]");
+      if (data.length === 0) return "Belum ada pemain.";
+      const sorted = data.sort((a, b) => b.score - a.score);
+      return sorted.map((item, i) => `${i + 1}. 🧑 ${item.name}: <b>${item.score}</b> poin`).join("<br>");
+    }
+
+    function addNewQuestion() {
+      const cat = document.getElementById("kategori").value;
+      const qText = document.getElementById("qText").value;
+      const options = [
+        document.getElementById("optA").value,
+        document.getElementById("optB").value,
+        document.getElementById("optC").value,
+        document.getElementById("optD").value
+      ];
+      const correct = document.getElementById("correctAns").value;
+      const explanation = document.getElementById("explain").value;
+
+      if (!qText || options.includes("") || !correct || !explanation) {
+        alert("Semua kolom wajib diisi!");
+        return;
+      }
+
+      const emojiMap = {
+        agama: "📘",
+        inggris: "🇬🇧",
+        indo: "🇮🇩",
+        pkn: "🧠",
+        ips: "🌍",
+        ipa: "🔬",
+        pjok: "🏃",
+        mulok: "🎨"
+      };
+
+      const emoji = emojiMap[cat] || "❓";
+
+      const newQ = {
+        question: `${emoji} ${qText}`,
+        options: options.sort(() => Math.random() - 0.5),
+        answer: correct,
+        explanation: `${emoji} ${explanation}`
+      };
+
+      questions.push(newQ);
+      alert("✅ Soal berhasil ditambahkan!");
+      document.getElementById("adminForm").style.display = "none";
+    }
+  </script>
+
+</body>
+</html>
